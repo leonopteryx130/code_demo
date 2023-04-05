@@ -25,12 +25,31 @@ function charDeduplication(character) {
 
     如果大于可生成牌的位数，那么游戏规则可以从连连看变成2合1的合成小游戏，因此次数可以直接等于 总对数+总对数-位数x
     */
-    var eliminatingPoor = {
+    var eliminatingPool = {
         //定义一个记录消除对数的字母池
     }
 
     for(let i of character){
-        
+        //遍历输入字符串，填充字母池
+        if(eliminatingPool[i]) {
+            eliminatingPool[i] +=1
+        }else{
+            eliminatingPool[i] = 1
+        }
+    }
+
+    let vacantPos = 26 - Object.keys(eliminatingPool).length //26个字母中没有出现的字母数
+    let letterPair = 0
+    for(let i of Object.values(eliminatingPool)) {
+        letterPair += Math.floor(i/2)
+        if(i%2 === 1){
+            vacantPos += 1
+        }
+    }
+
+    if(letterPair <= vacantPos) {
+        return letterPair
+    }else{
+        return 2*letterPair - vacantPos
     }
 }
-
