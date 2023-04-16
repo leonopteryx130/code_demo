@@ -1,0 +1,21 @@
+.portalDialog{
+    position: absolute;
+    width: 100vw;
+    height: 20vh;
+    left: 50%;
+    bottom: 0;
+    transform: translate(-50%, 0);
+    background-color: #fff;
+    border: 1px solid #ddd;
+    animation: dialog_animation 0.3s;
+    z-index: 100;
+}
+
+@keyframes dialog_animation {
+    from {
+        transform: translate(-50%, 20vh);
+    }
+    to {
+        transform: translate(-50%, 0);
+    }
+}
