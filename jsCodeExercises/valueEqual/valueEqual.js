@@ -18,9 +18,13 @@ isValueEqual([1, 2], [1, 3]) => true
 参考链接：https://zhuanlan.zhihu.com/p/157693504
 
 */
+global.__DEV__ = 'develop'
+console.log(global)
 
+/*
 function isValueEqual(a=undefined, b=undefined) {
-    console.log(typeof null)
+    console.log(global == this)
 }
 
 isValueEqual(undefined)
+*/
