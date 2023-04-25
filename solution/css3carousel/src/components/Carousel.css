@@ -1,0 +1,27 @@
+.container{
+    width: 100vw;
+    height: auto;
+    overflow-x: scroll;
+    display: flex;
+}
+
+.item{
+    flex-shrink: 0;
+    width: 100%;
+    height: auto;
+
+    animation: carousel 8s infinite 0s normal;
+}
+
+
+@keyframes carousel {
+    0%, 25%{
+        transform: translate(0, 0);
+    }
+    25%, 50%{
+        transform: translate(-100vw, 0);
+    }
+    75%, 100%{
+        transform: translate(-200vw, 0);
+    }
+}
