@@ -8,7 +8,7 @@ import useIsInViewport from '../hooks/useIsViewport';
 
 const colors = ['pink', 'lightgreen', 'brown', 'grey', 'lightblue', 'purple', 'orange', 'lightyellow']
 
-function FixedSizeList({ containerHeight, itemHeight, itemCount, children }) {
+function FixedSizeList({ containerHeight, itemHeight, children }) {
   // children 语义不好，赋值给 Component
   const Component = children;
 

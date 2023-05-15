@@ -20,8 +20,7 @@ function FixedSizeList({ children }: any) {
 
   const addlis = useCallback(() => {
     let timer = setTimeout(() => {
-      setLis(lis.concat(colors)) 
-      console.log(lis)
+      setLis(lis.concat(convertArray(colors))) 
     }, 1000)
 
     return () => {
@@ -39,8 +38,6 @@ function FixedSizeList({ children }: any) {
   const containerHeight = document.getElementById('container')?.offsetHeight
   const itemHeight = document.getElementById('container')?.offsetWidth! * 0.5 * (16/9)
 
-  console.log("containerHeight", containerHeight)
-
   const contentHeight = itemHeight * lis.length; // 内容总高度：每一条的高度*条目数（overflow: scroll）
   const [scrollTop, setScrollTop] = useState(0); // 滚动高度
 
@@ -57,12 +54,14 @@ function FixedSizeList({ children }: any) {
 
   // 需要渲染的 items
   const items = [];
+
   for (let i = startIdx; i <= endIdx; i++) {
     items.push(
         <Component 
             key={i} 
             index={i}
-            style={{backgroundColor: lis[i], height: itemHeight}} 
+            info={lis[i]}
+            style={{height: itemHeight, width: "50vw"}} 
         />
     );
   }

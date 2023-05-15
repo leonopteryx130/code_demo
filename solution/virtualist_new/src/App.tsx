@@ -1,16 +1,29 @@
 import FixedSizeList from './components/FixedSizeList';
 import './App.css';
 
-function Item({ style }: any) {
+function Item({ style, info }: any) {
   return (
-    <div
-      className="item"
-      style={{
-        ...style,
-      }}
-    >
-      {style.backgroundColor}
+    <div style={{display: "flex"}}>
+      <div
+        className="item"
+        style={{
+          ...style,
+          backgroundColor: info[0]
+        }}
+      >
+        {info[0]}
+      </div>
+      <div
+        className="item"
+        style={{
+          ...style,
+          backgroundColor: info[1],
+        }}
+      >
+        {info[1]}
+      </div>
     </div>
+
   );
 }
 
@@ -18,7 +31,6 @@ export default function App() {
 
   return (
     <>
-      列表项高度固定 - 虚拟列表实现
       <FixedSizeList>
         {Item}
       </FixedSizeList>
