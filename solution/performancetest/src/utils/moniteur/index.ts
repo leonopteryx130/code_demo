@@ -1,0 +1,3 @@
+export {
+    getPaintTime
+} from './indicator'
