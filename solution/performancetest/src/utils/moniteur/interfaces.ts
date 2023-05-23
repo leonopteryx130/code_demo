@@ -1,1 +1,1 @@
-export type IPerCallback = (entries: any[]) => void
+export type IPerCallback = (entries: (any)[]) => void

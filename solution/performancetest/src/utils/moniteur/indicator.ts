@@ -1,11 +1,11 @@
 import { IPerCallback } from "./interfaces"
 
-const getObserver = (type: string, cb: IPerCallback) => {
+const getObserver = (type: string, callback: IPerCallback) => {
     /*
     封装PerformanceObserver和observe
     */
     const perfObserver = new PerformanceObserver((entryList) => {
-      cb(entryList.getEntries())
+        callback(entryList.getEntries())
     })
     perfObserver.observe({ type, buffered: true })
 }
@@ -27,3 +27,29 @@ export const getPaintTime = () => {
         })
     })
 }
+
+export const getFID = () => {
+    /*
+    该方法用于输出FID
+    */
+    getObserver('first-input', (entries) => {
+        entries.forEach((entry) => {
+            //entry.name：事件名称，比如mousedown，keydown等，pointerdown等
+            //entry.startTime：交互事件发生的时间
+            //entry.processingStart：交互事件的代码开始运行的时间
+            const time = entry.processingStart - entry.startTime
+            standardizationConsole("FID", time)
+        })
+    })
+}
+
+export const getLCP = () => {
+    getObserver('largest-contentful-paint', (entries) => {
+        entries.forEach((entry) => {
+            const { startTime, renderTime} = entry
+            console.log("startTime:", startTime)
+            console.log("renderTime:", renderTime)
+            standardizationConsole("LCP", startTime | renderTime)
+        })
+    })
+  }
