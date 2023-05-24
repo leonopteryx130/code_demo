@@ -29,3 +29,6 @@ const getObserver = (type: string, callback: IPerCallback) => {
 #### 第二步：
 **目标**：实现FID的计算，交互指标需要传入的entry type为first-input，遍历方法不变。根据定义得到FID时间为：```entry.processingStart - entry.startTime```
 
+#### 第三步：
+**目标**：实现LCP
+
