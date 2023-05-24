@@ -46,10 +46,8 @@ export const getFID = () => {
 export const getLCP = () => {
     getObserver('largest-contentful-paint', (entries) => {
         entries.forEach((entry) => {
-            const { startTime, renderTime} = entry
-            console.log("startTime:", startTime)
-            console.log("renderTime:", renderTime)
-            standardizationConsole("LCP", startTime | renderTime)
+            const { startTime } = entry
+            standardizationConsole("LCP", startTime )
         })
     })
   }

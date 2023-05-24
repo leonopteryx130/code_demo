@@ -1,4 +1,6 @@
 import { getPaintTime, getFID, getLCP } from "./utils/moniteur";
+import Square from "./components/square";
+
 
 function App() {
 
@@ -13,6 +15,7 @@ function App() {
         "pink"
       </div>
       <input />
+      <Square></Square>
     </div>
   );
 }

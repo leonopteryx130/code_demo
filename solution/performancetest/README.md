@@ -30,5 +30,12 @@ const getObserver = (type: string, callback: IPerCallback) => {
 **目标**：实现FID的计算，交互指标需要传入的entry type为first-input，遍历方法不变。根据定义得到FID时间为：```entry.processingStart - entry.startTime```
 
 #### 第三步：
-**目标**：实现LCP
+**目标**：实现LCP。
 
+entryType：`largest-contentful-paint`
+属性startTime: MDN上是这样解释的，如果这个属性值不为0，那么就会返回renderTime的值，如果这个属性值为0，那么就会返回loadTime的值。为什么会出现这个情况呢？是因为renderTime是渲染时间，loadTime是加载时间，如果最大内容是一个跨域的外部资源，那么对于浏览器而言，该资源就不会触发渲染，而是会用到加载时间。
+
+#### 第四步：
+**目标**：实现CLS
+
+entryType：```layout-shift```，MDN解释是根据页面上元素的移动报告布局的稳定性
