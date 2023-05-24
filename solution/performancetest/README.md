@@ -2,6 +2,8 @@
 
 Performance API提供了很多的接口供我们访问前端性能指标，这些指标是浏览器自动生成的，不需要额外的运行或者监听，只需要调用接口访问即可。
 
+关于Performance用法，以及Performance在MDN上如何查询使用的文档可以[点击这里](http://49.235.67.41/notes/JavaScript/%E5%87%BD%E6%95%B0%E5%8F%8Aapi/Performance.html)，如果访问不了可以看[github](https://github.com/leonopteryx130/notes_docs/blob/main/notes/JavaScript/%E5%87%BD%E6%95%B0%E5%8F%8Aapi/Performance.md)
+
 ### 开发流程：
 
 #### 第一步：
