@@ -1,4 +1,5 @@
 import { IPerCallback } from "./interfaces"
+import ttiPolyfill from 'tti-polyfill'
 
 const getObserver = (type: string, callback: IPerCallback) => {
     /*
@@ -50,4 +51,12 @@ export const getLCP = () => {
             standardizationConsole("LCP", startTime )
         })
     })
-  }
+}
+
+export const getTTI = () => {
+    ttiPolyfill.getFirstConsistentlyInteractive().then((tti: any) => {
+        standardizationConsole("tti", tti)
+    })
+}
+
+

@@ -1,5 +1,6 @@
 export {
     getPaintTime,
     getFID,
-    getLCP
+    getLCP,
+    getTTI
 } from './indicator'

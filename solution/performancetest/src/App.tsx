@@ -1,4 +1,4 @@
-import { getPaintTime, getFID, getLCP } from "./utils/moniteur";
+import { getPaintTime, getFID, getLCP, getTTI } from "./utils/moniteur";
 import Square from "./components/square";
 
 
@@ -8,6 +8,7 @@ function App() {
   getPaintTime()
   getFID()
   getLCP()
+  getTTI()
 
   return (
     <div className="App">

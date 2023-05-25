@@ -39,3 +39,5 @@ entryType：`largest-contentful-paint`
 **目标**：实现CLS
 
 entryType：```layout-shift```，MDN解释是根据页面上元素的移动报告布局的稳定性
+
+**tti**：tti的测量可以用谷歌提供的模块tti-polyfill，
