@@ -1,6 +1,16 @@
 import { IPerCallback } from "./interfaces"
 import ttiPolyfill from 'tti-polyfill'
 
+declare global{
+    interface Window {
+        __tti: {
+            e: any[]
+        }
+    }
+}
+
+let tbt = 0
+
 const getObserver = (type: string, callback: IPerCallback) => {
     /*
     封装PerformanceObserver和observe
@@ -24,7 +34,13 @@ export const getPaintTime = () => {
     */
     getObserver('paint', (entries) => {
         entries.forEach((entry) => {
-            standardizationConsole(entry.name, entry.startTime)
+            const name = entry.name
+            if(name === 'first-contentful-paint') {
+                getLongTask(entry.time)
+                standardizationConsole(name, entry.startTime)
+            }else {
+                standardizationConsole(name, entry.startTime)
+            }
         })
     })
 }
@@ -40,6 +56,7 @@ export const getFID = () => {
             //entry.processingStart：交互事件的代码开始运行的时间
             const time = entry.processingStart - entry.startTime
             standardizationConsole("FID", time)
+            standardizationConsole("tbt", tbt)
         })
     })
 }
@@ -60,3 +77,30 @@ export const getTTI = () => {
 }
 
 
+const getLongTask = (fcp: number) => {
+    window.__tti = { e: [] }
+    getObserver('longtask', (entries) => {
+        window.__tti.e = window.__tti.e.concat(entries)
+        entries.forEach((entry) => {
+            // get long task time in fcp -> tti
+            if (entry.name !== 'self' || entry.startTime < fcp) {
+            return
+            }
+            // long tasks mean time over 50ms
+            const blockingTime = entry.duration - 50
+            if (blockingTime > 0) tbt += blockingTime
+        })
+    })
+}
+
+export const getCLS = () => {
+    getObserver('layout-shift', (entries) => {
+      let value = 0
+      entries.forEach((entry) => {
+        if (!entry.hadRecentInput) {
+          value += entry.value
+        }
+      })
+      standardizationConsole("cls", value)
+    })
+  }
