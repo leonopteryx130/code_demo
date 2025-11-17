@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js 自然地形生成</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Arial;
+        }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.159.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.159.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { Water } from 'three/addons/objects/Water.js';
+        import { Sky } from 'three/addons/objects/Sky.js';
+        import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@3.0.0/dist/esm/simplex-noise.js';
+
+        // 初始化场景
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x9fc7ff, 0.0025);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 2000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.25;
+        renderer.physicallyCorrectLights = true;
+        renderer.setClearColor(0x0a1a24);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxPolarAngle = Math.PI * 0.495;
+        controls.target.set(0, 5, 0);
+
+        // 光照
+        const sunLight = new THREE.DirectionalLight(0xffffff, 3);
+        sunLight.position.set(150, 300, 50);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.set(4096, 4096);
+        sunLight.shadow.camera.left = -200;
+        sunLight.shadow.camera.right = 200;
+        sunLight.shadow.camera.top = 200;
+        sunLight.shadow.camera.bottom = -200;
+        scene.add(sunLight);
+
+        const hemiLight = new THREE.HemisphereLight(0x9fc7ff, 0x1a1f26, 0.8);
+        scene.add(hemiLight);
+
+        // 天空和环境光探针
+        const sky = new Sky();
+        sky.scale.setScalar(10000);
+        scene.add(sky);
+
+        const skyUniforms = sky.material.uniforms;
+        skyUniforms['turbidity'].value = 8;
+        skyUniforms['rayleigh'].value = 1.2;
+        skyUniforms['mieCoefficient'].value = 0.006;
+        skyUniforms['mieDirectionalG'].value = 0.8;
+
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        function updateSun(elevation = 35, azimuth = 180) {
+            const phi = THREE.MathUtils.degToRad(90 - elevation);
+            const theta = THREE.MathUtils.degToRad(azimuth);
+
+            const sun = new THREE.Vector3().setFromSphericalCoords(1, phi, theta);
+            sky.material.uniforms['sunPosition'].value.copy(sun);
+            sunLight.position.copy(sun).multiplyScalar(400);
+
+            const renderTarget = pmremGenerator.fromScene(sky);
+            scene.environment = renderTarget.texture;
+        }
+        updateSun();
+
+        // 地形参数
+        const TERRAIN_SIZE = 256;
+        const TERRAIN_SCALE = 2.2;
+        const MAX_HEIGHT = 35;
+
+        class NaturalTerrain {
+            constructor(size, scale, maxHeight) {
+                this.size = size;
+                this.scale = scale;
+                this.maxHeight = maxHeight;
+                this.heightMap = new Float32Array(size * size);
+                this.simplex = new SimplexNoise();
+                
+                this.generateBaseTerrain();
+                this.applyThermalErosion(20);
+                this.applyHydraulicErosion(50000);
+                
+                this.createTerrainMesh();
+            }
+            
+            // 生成基础地形 - 分形噪声
+            generateBaseTerrain() {
+                const octaves = 6;
+                const persistence = 0.5;
+                const lacunarity = 2.0;
+                
+                for (let y = 0; y < this.size; y++) {
+                    for (let x = 0; x < this.size; x++) {
+                        let value = 0;
+                        let amplitude = 1;
+                        let frequency = 1;
+                        let maxValue = 0;
+                        
+                        for (let i = 0; i < octaves; i++) {
+                            const nx = x / this.size * frequency * this.scale;
+                            const ny = y / this.size * frequency * this.scale;
+                            
+                            // 添加域扭曲增加自然感
+                            const distortX = nx + 0.5 * this.simplex.noise2D(nx * 0.5, ny * 0.5);
+                            const distortY = ny + 0.5 * this.simplex.noise2D(nx * 0.5 + 100, ny * 0.5 + 100);
+                            
+                            const noiseValue = this.simplex.noise2D(distortX, distortY);
+                            value += noiseValue * amplitude;
+                            maxValue += amplitude;
+                            
+                            amplitude *= persistence;
+                            frequency *= lacunarity;
+                        }
+                        
+                        value /= maxValue;
+                        value = Math.pow(value * 0.5 + 0.5, 1.5); // 增强地形对比度
+                        
+                        this.heightMap[y * this.size + x] = value * this.maxHeight;
+                    }
+                }
+            }
+            
+            // 热力侵蚀 - 平滑陡峭区域
+            applyThermalErosion(iterations) {
+                const talusAngle = 0.1;
+                const materialTransfer = 0.2;
+                
+                for (let iter = 0; iter < iterations; iter++) {
+                    for (let y = 1; y < this.size - 1; y++) {
+                        for (let x = 1; x < this.size - 1; x++) {
+                            const idx = y * this.size + x;
+                            const currentHeight = this.heightMap[idx];
+                            
+                            // 检查周围邻居
+                            let totalDifference = 0;
+                            let transferCount = 0;
+                            
+                            for (let dy = -1; dy <= 1; dy++) {
+                                for (let dx = -1; dx <= 1; dx++) {
+                                    if (dx === 0 && dy === 0) continue;
+                                    
+                                    const nIdx = (y + dy) * this.size + (x + dx);
+                                    const diff = currentHeight - this.heightMap[nIdx];
+                                    
+                                    if (diff > talusAngle) {
+                                        totalDifference += diff;
+                                        transferCount++;
+                                    }
+                                }
+                            }
+                            
+                            if (transferCount > 0) {
+                                const avgDifference = totalDifference / transferCount;
+                                const transferAmount = avgDifference * materialTransfer;
+                                
+                                this.heightMap[idx] -= transferAmount;
+                                
+                                // 将物质分配到周围较低的单元格
+                                for (let dy = -1; dy <= 1; dy++) {
+                                    for (let dx = -1; dx <= 1; dx++) {
+                                        if (dx === 0 && dy === 0) continue;
+                                        
+                                        const nIdx = (y + dy) * this.size + (x + dx);
+                                        const diff = currentHeight - this.heightMap[nIdx];
+                                        
+                                        if (diff > talusAngle) {
+                                            this.heightMap[nIdx] += transferAmount / transferCount;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 水力侵蚀 - 雕刻河谷和溪流
+            applyHydraulicErosion(dropletCount) {
+                const erosionRadius = 3;
+                const inertia = 0.05;
+                const sedimentCapacityFactor = 4;
+                const minSedimentCapacity = 0.01;
+                const erosionSpeed = 0.3;
+                const depositionSpeed = 0.3;
+                const evaporateSpeed = 0.01;
+                const gravity = 4;
+                
+                for (let i = 0; i < dropletCount; i++) {
+                    // 随机初始位置
+                    let posX = Math.random() * (this.size - 1);
+                    let posY = Math.random() * (this.size - 1);
+                    let dirX = 0;
+                    let dirY = 0;
+                    let speed = 1;
+                    let water = 1;
+                    let sediment = 0;
+                    
+                    for (let lifetime = 0; lifetime < 30; lifetime++) {
+                        const nodeX = Math.floor(posX);
+                        const nodeY = Math.floor(posY);
+                        const cellOffsetX = posX - nodeX;
+                        const cellOffsetY = posY - nodeY;
+                        
+                        if (nodeX < 1 || nodeX >= this.size - 1 || nodeY < 1 || nodeY >= this.size - 1) {
+                            break;
+                        }
+                        
+                        // 计算梯度
+                        const gradient = this.calculateGradient(posX, posY);
+                        
+                        // 更新方向
+                        dirX = (dirX * inertia - gradient.x * (1 - inertia));
+                        dirY = (dirY * inertia - gradient.y * (1 - inertia));
+                        
+                        // 归一化方向
+                        const len = Math.sqrt(dirX * dirX + dirY * dirY);
+                        if (len !== 0) {
+                            dirX /= len;
+                            dirY /= len;
+                        }
+                        
+                        const newPosX = posX + dirX;
+                        const newPosY = posY + dirY;
+                        
+                        // 边界检查
+                        if (newPosX < 0 || newPosX >= this.size - 1 || newPosY < 0 || newPosY >= this.size - 1) {
+                            break;
+                        }
+                        
+                        // 计算高度差
+                        const newHeight = this.getInterpolatedHeight(newPosX, newPosY);
+                        const currentHeight = this.getInterpolatedHeight(posX, posY);
+                        const heightDifference = newHeight - currentHeight;
+                        
+                        // 计算沉积物容量
+                        const sedimentCapacity = Math.max(-heightDifference * speed * water * sedimentCapacityFactor, minSedimentCapacity);
+                        
+                        // 沉积或侵蚀
+                        if (sediment > sedimentCapacity || heightDifference > 0) {
+                            // 沉积
+                            const amountToDeposit = (heightDifference > 0) ? 
+                                Math.min(heightDifference, sediment) : 
+                                (sediment - sedimentCapacity) * depositionSpeed;
+                            
+                            sediment -= amountToDeposit;
+                            this.addSediment(posX, posY, amountToDeposit);
+                        } else {
+                            // 侵蚀
+                            const amountToErode = Math.min((sedimentCapacity - sediment) * erosionSpeed, -heightDifference);
+                            sediment += amountToErode;
+                            this.removeSediment(posX, posY, amountToErode, erosionRadius);
+                        }
+                        
+                        // 更新速度和水含量
+                        const speedSq = speed * speed + heightDifference * gravity;
+                        speed = Math.sqrt(Math.max(speedSq, 0));
+                        water *= (1 - evaporateSpeed);
+                        
+                        posX = newPosX;
+                        posY = newPosY;
+                    }
+                }
+            }
+            
+            calculateGradient(x, y) {
+                const coordX = Math.floor(x);
+                const coordY = Math.floor(y);
+                
+                const heightNW = this.heightMap[coordY * this.size + coordX];
+                const heightNE = this.heightMap[coordY * this.size + coordX + 1];
+                const heightSW = this.heightMap[(coordY + 1) * this.size + coordX];
+                const heightSE = this.heightMap[(coordY + 1) * this.size + coordX + 1];
+                
+                // Sobel滤波器计算梯度
+                const gradientX = (heightNE - heightNW) + 2 * (heightSE - heightSW) + (heightNE - heightNW);
+                const gradientY = (heightSW - heightNW) + 2 * (heightSE - heightNE) + (heightSW - heightNW);
+                
+                return { x: gradientX, y: gradientY };
+            }
+            
+            getInterpolatedHeight(x, y) {
+                const x0 = Math.floor(x);
+                const y0 = Math.floor(y);
+                const x1 = x0 + 1;
+                const y1 = y0 + 1;
+                
+                const fracX = x - x0;
+                const fracY = y - y0;
+                
+                // 双线性插值
+                const h00 = this.heightMap[y0 * this.size + x0];
+                const h10 = this.heightMap[y0 * this.size + x1];
+                const h01 = this.heightMap[y1 * this.size + x0];
+                const h11 = this.heightMap[y1 * this.size + x1];
+                
+                const h0 = h00 * (1 - fracX) + h10 * fracX;
+                const h1 = h01 * (1 - fracX) + h11 * fracX;
+                
+                return h0 * (1 - fracY) + h1 * fracY;
+            }
+            
+            addSediment(x, y, amount) {
+                const coordX = Math.floor(x);
+                const coordY = Math.floor(y);
+                const fracX = x - coordX;
+                const fracY = y - coordY;
+                
+                this.heightMap[coordY * this.size + coordX] += amount * (1 - fracX) * (1 - fracY);
+                this.heightMap[coordY * this.size + coordX + 1] += amount * fracX * (1 - fracY);
+                this.heightMap[(coordY + 1) * this.size + coordX] += amount * (1 - fracX) * fracY;
+                this.heightMap[(coordY + 1) * this.size + coordX + 1] += amount * fracX * fracY;
+            }
+            
+            removeSediment(x, y, amount, radius) {
+                const coordX = Math.floor(x);
+                const coordY = Math.floor(y);
+                
+                for (let dy = -radius; dy <= radius; dy++) {
+                    for (let dx = -radius; dx <= radius; dx++) {
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < radius * radius) {
+                            const sampleX = coordX + dx;
+                            const sampleY = coordY + dy;
+                            
+                            if (sampleX >= 0 && sampleX < this.size && sampleY >= 0 && sampleY < this.size) {
+                                const weight = 1 - Math.sqrt(distSq) / radius;
+                                const idx = sampleY * this.size + sampleX;
+                                this.heightMap[idx] -= amount * weight / (Math.PI * radius * radius);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            createTerrainMesh() {
+                const geometry = new THREE.PlaneGeometry(
+                    this.size, 
+                    this.size, 
+                    this.size - 1, 
+                    this.size - 1
+                );
+                
+                geometry.rotateX(-Math.PI / 2);
+                
+                // 应用高度图
+                const vertices = geometry.attributes.position.array;
+                for (let i = 0, j = 0; i < vertices.length; i += 3, j++) {
+                    vertices[i + 1] = this.heightMap[j];
+                }
+                
+                geometry.computeVertexNormals();
+                
+                // 基于高度设置颜色
+                const colors = [];
+                const color1 = new THREE.Color(0x2F4F4F); // 深灰蓝 - 深海
+                const color2 = new THREE.Color(0x4682B4); // 钢蓝 - 浅海
+                const color3 = new THREE.Color(0x8FBC8F); // 深海绿 - 沙滩
+                const color4 = new THREE.Color(0x32CD32); // 石灰绿 - 平原
+                const color5 = new THREE.Color(0x8B4513); // 马鞍棕 - 山地
+                const color6 = new THREE.Color(0xF5F5F5); // 白色 - 雪峰
+                
+                for (let i = 0; i < vertices.length; i += 3) {
+                    const height = vertices[i + 1];
+                    let color;
+                    
+                    if (height < this.maxHeight * 0.1) color = color1;
+                    else if (height < this.maxHeight * 0.15) color = color2;
+                    else if (height < this.maxHeight * 0.25) color = color3;
+                    else if (height < this.maxHeight * 0.6) color = color4;
+                    else if (height < this.maxHeight * 0.85) color = color5;
+                    else color = color6;
+                    
+                    colors.push(color.r, color.g, color.b);
+                }
+                
+                geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+                
+                const material = new THREE.MeshStandardMaterial({ 
+                    vertexColors: true,
+                    flatShading: false,
+                    roughness: 0.85,
+                    metalness: 0.05
+                });
+                
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.receiveShadow = true;
+                this.mesh.castShadow = true;
+            }
+            
+            addToScene(scene) {
+                scene.add(this.mesh);
+            }
+        }
+
+        // 创建地形
+        const terrain = new NaturalTerrain(TERRAIN_SIZE, TERRAIN_SCALE, MAX_HEIGHT);
+        terrain.addToScene(scene);
+
+        // 相机位置
+        camera.position.set(TERRAIN_SIZE * 0.5, TERRAIN_SIZE * 0.35, TERRAIN_SIZE * 0.8);
+        camera.lookAt(controls.target);
+
+        // 添加真实水面
+        const waterGeometry = new THREE.PlaneGeometry(TERRAIN_SIZE * 2, TERRAIN_SIZE * 2);
+        const waterNormals = new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg');
+        waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
+        const water = new Water(waterGeometry, {
+            textureWidth: 2048,
+            textureHeight: 2048,
+            waterNormals,
+            sunDirection: new THREE.Vector3(),
+            sunColor: 0xffffff,
+            waterColor: 0x0f5c91,
+            distortionScale: 6,
+            fog: scene.fog !== undefined,
+            alpha: 0.95
+        });
+        water.rotation.x = -Math.PI / 2;
+        water.position.y = MAX_HEIGHT * 0.12;
+        scene.add(water);
+
+        // 动画循环
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            water.material.uniforms['time'].value += 1 / 300;
+            controls.update();
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
